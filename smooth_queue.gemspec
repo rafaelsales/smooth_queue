@@ -9,7 +9,10 @@ Gem::Specification.new do |gem|
   gem.license       = 'MIT'
   gem.version       = '0.0.1'
   gem.executables   = ['squeue', 'smooth_queue']
+  gem.require_paths = ['lib']
+
 
   gem.add_dependency 'redis', '~> 4.0', '>= 4.0.1'
+  gem.add_dependency 'redis-namespace', '~> 1.6.0'
   gem.add_dependency 'connection_pool', '~> 2.2', '>= 2.2.1'
 end

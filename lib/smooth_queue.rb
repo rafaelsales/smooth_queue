@@ -4,6 +4,20 @@ require 'smooth_queue/configuration'
 
 module SmoothQueue
   PRIORITIES = %i[head tail].freeze
+  POP_MESSAGE = <<-LUA.freeze
+    local max_concurrency = KEYS[1]
+    local queue = KEYS[2]
+    local processing_queue = KEYS[3]
+
+    -- Code in Ruby
+    -- if redis.llen(processing_queue) < max_concurrency
+    --  id = redis.rpoplpush(queue, processing_queue)
+
+    if tonumber(redis.call('llen',processing_queue)) < tonumber(max_concurrency) then
+      local id = redis.call('rpoplpush', queue, processing_queue)
+      return id
+    end
+  LUA
 
   def self.configure(&_block)
     @config ||= Config.new

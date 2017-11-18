@@ -1,4 +1,4 @@
-Bundler.require(:default, :runtime_dependencies)
+Bundler.require(:default, :runtime_dependencies, :test)
 
 SmoothQueue.configure do |config|
   config.add_queue('heavy_lifting', 5) do |id, message|

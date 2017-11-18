@@ -35,7 +35,9 @@ module SmoothQueue
   # is specified in the priority argument
   def self.enqueue(queue, message, priority = :tail)
     raise ArgumentError, "`priority` must be #{PRIORITIES.inspect}, but was #{priority}" unless priority.in?(PRIORITIES)
-    raise ArgumentError, "`message` must be a String but was #{message.class}" unless message.is_a?(String)
+    if !message.is_a?(String) && !message.is_a?(Hash)
+      raise ArgumentError, "`message` must be a String or Hash but was #{message.class}"
+    end
     raise ArgumentError, "`queue` must be a String but was #{queue.class}" unless message.is_a?(String)
 
     payload = Util.build_message_payload(queue, message)

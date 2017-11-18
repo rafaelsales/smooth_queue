@@ -21,12 +21,38 @@ reasons for that:
   Example: given a message type which processing causes more reads on database than usual, when your application needs
   to process many of these messages, the stress on database can cause latency for users and other important tasks
 
-  2. Processing of certain message types takes so much time that you don't want to risk having all your background jobs
+  2. Processing certain message types takes so much time that you don't want to risk having all your background jobs
   busy processing only one type of message and delaying other critical jobs
 
-  1. You cannot affort computing power to handle excessive load when certain jobs are executed with high concurrency
+  1. You cannot afford computing power to handle excessive load when certain jobs are executed with high concurrency
 
   3. You want to protect you background job queues from attacks that cause too many messages of the same type
+
+# Usage
+
+### Client
+```ruby
+# On app load:
+SmoothQueue.configure do |config|
+  config.add_queue('heavy_lifting', max_concurrency = 4) do |id, message|
+    SomeBackgroundWorker.perform_later(id, message) # Make sure this operation is ~O(1)
+  end
+end
+
+class SomeBackgroundWorker
+  def process(id, message)
+    # Make some heavy processing...
+    SmoothQueue.done(id)
+  end
+end
+
+# Adding messages to a queue:
+SmoothQueue.enqueue('heavy_lifting', { foo: 'bar', baz: true, id: 556677 })
+```
+
+### Server
+
+`/your_project% bin/smooth_queue --daemon`
 
 # License
 

@@ -3,9 +3,9 @@ require 'redis-namespace'
 require 'smooth_queue/configuration'
 
 module SmoothQueue
-  PRIORITIES = %i(head tail)
+  PRIORITIES = %i[head tail].freeze
 
-  def self.configure(&block)
+  def self.configure(&_block)
     @config ||= Config.new
     yield config
   end

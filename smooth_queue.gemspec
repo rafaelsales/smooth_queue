@@ -1,4 +1,4 @@
-# -*- encoding: utf-8 -*-
+
 Gem::Specification.new do |gem|
   gem.name          = 'smooth_queue'
   gem.summary       = 'Simple Redis queue manager with flow control for Ruby apps'
@@ -8,9 +8,8 @@ Gem::Specification.new do |gem|
   gem.homepage      = 'https://github.com/rafaelsales/smooth_queue'
   gem.license       = 'MIT'
   gem.version       = '0.0.1'
-  gem.executables   = ['squeue', 'smooth_queue']
+  gem.executables   = %w[squeue smooth_queue]
   gem.require_paths = ['lib']
-
 
   gem.add_dependency 'redis', '~> 4.0', '>= 4.0.1'
   gem.add_dependency 'redis-namespace', '~> 1.6.0'

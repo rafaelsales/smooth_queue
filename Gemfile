@@ -4,7 +4,7 @@ gemspec
 
 group :development, :test do
   gem 'bundler'
-  gem 'rake'
   gem 'pry-byebug'
+  gem 'rake'
   gem 'rubocop', require: false
 end

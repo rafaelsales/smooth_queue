@@ -1,7 +1,7 @@
 module SmoothQueue
   class Config
     DEFAULT_OPTIONS = {
-      queues: {}
+      queues: {},
     }.freeze
     attr_reader :options
 

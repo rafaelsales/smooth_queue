@@ -20,12 +20,8 @@ module SmoothQueue
       options.dig(:queues, queue, :max_concurrency)
     end
 
-    def queue_handler
+    def queue_handler(queue)
       options.dig(:queues, queue, :handler)
-    end
-
-    def processing_queue_name(queue)
-      "#{queue}-processing"
     end
   end
 end

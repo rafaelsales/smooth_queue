@@ -14,6 +14,23 @@ module SmoothQueue
     @config
   end
 
+  def self.wait_for_work
+    redis.subscribe(:queue_changed) do |on|
+      on.message do |_channel, queue|
+        max_concurrency = config.queue_max_concurrency(queue)
+        processing_queue = Util.processing_queue(queue)
+
+        # TODO: Use lua to make next two lines atomic
+        if redis.llen(processing_queue) < max_concurrency
+          id = redis.rpoplpush(queue, processing_queue)
+          payload = Util.from_json(redis.hget('messages', id))
+          message = payload.delete('message')
+          config.queue_handler.call(id, message, payload)
+        end
+      end
+    end
+  end
+
   # Enqueue the message in the given queue. The message can be added to the tail or to the head according to what
   # is specified in the priority argument
   def self.enqueue(queue, message, priority = :tail)
@@ -22,35 +39,41 @@ module SmoothQueue
     raise ArgumentError, "`queue` must be a String but was #{queue.class}" unless message.is_a?(String)
 
     payload = Util.build_message_payload(queue, message)
+    id = Util.generate_id
     redis.sadd('queues', queue)
     redis.multi do
-      redis.lpush(queue, Util.to_json(payload))
+      redis.hset('messages', id, Util.to_json(payload))
+      redis.lpush(queue, id)
       redis.publish('queue_changed', queue)
     end
   end
 
-  def self.wait_for_work
-    redis.subscribe(:queue_changed) do |on|
-      on.message do |_channel, message|
-        payload = Util.from_json(message)
-        max_concurrency = config.queue_max_concurrency(payload['queue'])
-        processing_queue = config.processing_queue_name(queue)
+  # Removes the message from processing queue as it was successfully processed
+  def self.done(id)
+    payload = Util.from_json(redis.hget('messages', id))
+    raise ArgumentError, "`id` doesn't match an existing message" unless payload
 
-        # TODO: Use lua to make this atomic
-        if redis.llen(max_concurrency)
-          redis.rpoplpush(queue, processing_queue)
-          queue_options[:handler].call
-        end
+    processing_queue = Util.processing_queue(payload['queue'])
+    redis.lrem(processing_queue, 1, id)
+  end
+
+  # Moves the message back to the waiting queue
+  # NOTE: Redesign to support retry delay
+  def self.retry(id, priority = :tail)
+    payload = Util.from_json(redis.hget('messages', id))
+    payload['retry_count'] = payload.fetch('retry_count', 0) + 1
+    queue = payload['queue']
+    processing_queue = Util.processing_queue(queue)
+
+    redis.multi do
+      if priority == :head
+        redis.rpush(queue, id)
+      else
+        redis.lpush(queue, id)
       end
+      redis.lrem(processing_queue, 1, id)
+      redis.hset('messages', id, payload)
     end
-  end
-
-  def self.done(json_message_info, priority = :tail)
-    message_info = Util.from_json(json_message_info)
-    message_info[queue]
-  end
-
-  def self.retry(message_info, priority = :tail)
   end
 
   def self.redis

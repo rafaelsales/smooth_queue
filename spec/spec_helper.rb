@@ -1,5 +1,13 @@
 Bundler.require(:default, :runtime_dependencies)
 
+SmoothQueue.configure do |config|
+  config.add_queue('heavy_lifting', 5) do |id, message|
+  end
+
+  config.add_queue('very_heavy_lifting', 2) do |id, message|
+  end
+end
+
 RSpec.configure do |config|
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true # Default on RSpec 4

@@ -1,6 +1,7 @@
 require 'redis'
 require 'redis-namespace'
-require 'smooth_queue/config'
+require_relative 'smooth_queue/config'
+require_relative 'smooth_queue/util'
 
 module SmoothQueue
   PRIORITIES = %i[head tail].freeze
@@ -34,20 +35,15 @@ module SmoothQueue
   # Enqueue the message in the given queue. The message can be added to the tail or to the head according to what
   # is specified in the priority argument
   def self.enqueue(queue, message, priority = :tail)
-    raise ArgumentError, "`priority` must be #{PRIORITIES.inspect}, but was #{priority}" unless priority.in?(PRIORITIES)
     if !message.is_a?(String) && !message.is_a?(Hash)
       raise ArgumentError, "`message` must be a String or Hash but was #{message.class}"
     end
-    raise ArgumentError, "`queue` must be a String but was #{queue.class}" unless message.is_a?(String)
+    raise ArgumentError "`queue` #{queue} if not configured" unless config.queue_defined?(queue)
 
     payload = Util.build_message_payload(queue, message)
     id = Util.generate_id
     redis.sadd('queues', queue)
-    redis.multi do
-      redis.hset('messages', id, Util.to_json(payload))
-      redis.lpush(queue, id)
-      redis.publish('queue_changed', queue)
-    end
+    add_payload_to_queue(id, payload, queue)
   end
 
   # Removes the message from processing queue as it was successfully processed
@@ -55,30 +51,38 @@ module SmoothQueue
     payload = Util.from_json(redis.hget('messages', id))
     raise ArgumentError, "`id` doesn't match an existing message" unless payload
 
-    processing_queue = Util.processing_queue(payload['queue'])
-    redis.lrem(processing_queue, 1, id)
+    queue = payload['queue']
+    processing_queue = Util.processing_queue(queue)
+    redis.multi do
+      redis.lrem(processing_queue, 1, id)
+      redis.publish('queue_changed', queue)
+    end
   end
 
   # Moves the message back to the waiting queue
   # NOTE: Redesign to support retry delay
-  def self.retry(id, priority = :tail)
+  def self.retry(id)
     payload = Util.from_json(redis.hget('messages', id))
     payload['retry_count'] = payload.fetch('retry_count', 0) + 1
     queue = payload['queue']
     processing_queue = Util.processing_queue(queue)
 
-    redis.multi do
-      if priority == :head
-        redis.rpush(queue, id)
-      else
-        redis.lpush(queue, id)
-      end
+    add_payload_to_queue(id, payload, queue) do
       redis.lrem(processing_queue, 1, id)
-      redis.hset('messages', id, payload)
     end
   end
 
   def self.redis
     @redis ||= Redis::Namespace.new('smooth_queue', redis: Redis.new)
   end
+
+  def self.add_payload_to_queue(id, payload, queue, &_block)
+    redis.multi do
+      redis.hset('messages', id, payload)
+      redis.lpush(queue, id)
+      redis.publish('queue_changed', queue)
+      yield if block_given?
+    end
+  end
+  private_class_method :add_payload_to_queue
 end

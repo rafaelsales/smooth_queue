@@ -16,7 +16,10 @@ module SmoothQueue
     end
 
     def self.processing_queue(queue)
-      "#{queue}-processing"
+      @processing_queues ||= {}
+      @processing_queues.fetch(queue) do
+        "#{queue}-processing".freeze
+      end
     end
 
     def self.from_json(json)

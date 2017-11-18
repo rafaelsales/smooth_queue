@@ -1,6 +1,6 @@
 require 'redis'
 require 'redis-namespace'
-require 'smooth_queue/configuration'
+require 'smooth_queue/config'
 
 module SmoothQueue
   PRIORITIES = %i[head tail].freeze

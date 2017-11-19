@@ -30,18 +30,18 @@ module SmoothQueue
         end
       rescue Redis::CommandError => e
         raise unless e.message =~ /NOSCRIPT/
-        load_script
+        load
         retry
       end
 
-      def load_script
+      def load
         SmoothQueue.with_redis do |redis|
           @sha = redis.script(:load, code).freeze
         end
       end
 
       def sha
-        load_script unless defined?(@sha)
+        load unless defined?(@sha)
         @sha
       end
     end
@@ -113,8 +113,8 @@ module SmoothQueue
       queue.handler.call(id, message, payload)
     end
 
-    def self.call_script(name, **arguments)
-      SCRIPTS.fetch(name).call(**arguments)
+    def self.call_script(name, **args)
+      SCRIPTS.fetch(name).call(**args)
     end
   end
 end

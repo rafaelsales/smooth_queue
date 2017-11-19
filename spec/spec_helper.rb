@@ -1,4 +1,4 @@
-Bundler.require(:default, :runtime_dependencies, :test)
+Bundler.require(:default, :test)
 
 ENV['REDIS_URL'] ||= 'redis://127.0.0.1:6379/15'
 Redis.new.flushall

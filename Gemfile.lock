@@ -2,6 +2,7 @@ PATH
   remote: .
   specs:
     smooth_queue (0.0.1)
+      bundler
       connection_pool (~> 2.2, >= 2.2.1)
       redis (~> 4.0, >= 4.0.1)
       redis-namespace (~> 1.6.0)

@@ -1,3 +1,4 @@
+Bundler.require(:runtime_dependencies)
 require 'redis'
 require 'redis-namespace'
 require 'connection_pool'

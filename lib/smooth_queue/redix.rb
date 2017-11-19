@@ -1,4 +1,5 @@
 module SmoothQueue
+  # Redis interface with functions built for SmoothQueue
   module Redix
     module Connection
       def self.redis_connection_pool

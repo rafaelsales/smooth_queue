@@ -32,7 +32,7 @@ module SmoothQueue
       end
 
       def sha
-        load_script unless @sha
+        load_script unless defined?(@sha)
         @sha
       end
     end
@@ -54,10 +54,11 @@ module SmoothQueue
       LUA
     }.freeze
 
-    def self.pop_message_to_process(queue)
-      processing_queue = SmoothQueue.config.processing_queue(queue)
-      max_concurrency = SmoothQueue.config.max_concurrency(queue)
-      call_script(:pop_message_to_process, keys: [queue, processing_queue], args: [max_concurrency])
+    def self.pop_message_to_process(queue_name)
+      queue = SmoothQueue.config.queue(queue_name)
+      call_script(:pop_message_to_process,
+                  keys: [queue_name, queue.processing_queue_name],
+                  args: [queue.max_concurrency])
     end
 
     def self.enqueue(queue, id, payload, &_block)
@@ -72,28 +73,30 @@ module SmoothQueue
       end
     end
 
-    def self.processing_done(queue, id)
-      processing_queue = SmoothQueue.config.processing_queue(queue)
+    def self.processing_done(queue_name, id)
+      queue = SmoothQueue.config.queue(queue_name)
       with_nredis do |redis|
         redis.multi do
-          redis.lrem(processing_queue, 1, id)
-          redis.publish('queue_changed', queue)
+          redis.lrem(queue.processing_queue_name, 1, id)
+          redis.publish('queue_changed', queue_name)
         end
       end
     end
 
-    def self.retry(queue, id, payload)
-      enqueue(queue, id, payload) do |redis|
-        redis.lrem(processing_queue, 1, id)
+    def self.retry(queue_name, id, payload)
+      queue = SmoothQueue.config.queue(queue_name)
+      enqueue(queue_name, id, payload) do |redis|
+        redis.lrem(queue.processing_queue_name, 1, id)
       end
     end
 
-    def self.queue_updated(queue)
-      with_nredis do |redis|
-        if pop_message_to_process(queue)
+    def self.queue_updated(queue_name)
+      queue = SmoothQueue.config.queue(queue_name)
+      Redis.new.tap do |redis|
+        if (id = pop_message_to_process(queue_name))
           payload = Util.from_json(redis.hget('messages', id))
           message = payload.delete('message')
-          config.queue_handler.call(id, message, payload)
+          queue.handler.call(id, message, payload)
         end
       end
     end

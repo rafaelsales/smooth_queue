@@ -23,10 +23,8 @@ module SmoothQueue
   def self.wait_for_work
     with_nredis do |redis|
       redis.subscribe('queue_changed') do |on|
-        on.message do |_channel, queue|
-          max_concurrency = config.queue_max_concurrency(queue)
-          processing_queue = Util.processing_queue(queue)
-          Redix.queue_updated(queue, processing_queue, max_concurrency)
+        on.message do |_channel, queue_name|
+          Redix.queue_updated(queue_name)
         end
       end
     end
@@ -34,15 +32,15 @@ module SmoothQueue
 
   # Enqueue the message in the given queue. The message can be added to the tail or to the head according to what
   # is specified in the priority argument
-  def self.enqueue(queue, message, _priority = :tail)
+  def self.enqueue(queue_name, message, _priority = :tail)
     if !message.is_a?(String) && !message.is_a?(Hash)
       raise ArgumentError, "`message` must be a String or Hash but was #{message.class}"
     end
-    raise ArgumentError "`queue` #{queue} if not configured" unless config.queue_defined?(queue)
+    raise ArgumentError "`queue` #{queue_name} if not configured" unless config.valid_queue?(queue_name)
 
-    payload = Util.build_message_payload(queue, message)
+    payload = Util.build_message_payload(queue_name, message)
     id = Util.generate_id
-    Redix.enqueue(queue, id, payload)
+    Redix.enqueue(queue_name, id, payload)
   end
 
   # Removes the message from processing queue as it was successfully processed

@@ -1,5 +1,11 @@
 module SmoothQueue
   class Config
+    Queue = Struct.new(:name, :max_concurrency, :handler) do
+      def processing_queue_name
+        @processing_queue_name ||= "#{name}-processing"
+      end
+    end
+
     DEFAULT_OPTIONS = {
       queues: {},
     }.freeze
@@ -9,30 +15,16 @@ module SmoothQueue
       @options = DEFAULT_OPTIONS.dup
     end
 
-    def add_queue(queue, max_concurrency, &handler)
-      options[:queues][queue.to_sym] = {
-        max_concurrency: max_concurrency,
-        handler: handler,
-      }
+    def add_queue(queue_name, max_concurrency, &handler)
+      options[:queues][queue_name.to_s] = Queue.new(queue_name.to_s, max_concurrency, handler)
     end
 
-    def queue_max_concurrency(queue)
-      options.dig(:queues, queue.to_sym, :max_concurrency)
+    def queue(queue_name)
+      options.dig(:queues, queue_name.to_s)
     end
 
-    def queue_handler(queue)
-      options.dig(:queues, queue.to_sym, :handler)
-    end
-
-    def processing_queue(queue)
-      @processing_queues ||= {}
-      @processing_queues.fetch(queue) do
-        "#{queue}-processing".freeze
-      end
-    end
-
-    def queue_defined?(queue)
-      options[:queues].key?(queue.to_sym)
+    def valid_queue?(queue_name)
+      options[:queues].key?(queue_name.to_s)
     end
   end
 end

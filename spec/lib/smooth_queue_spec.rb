@@ -3,7 +3,7 @@ require 'spec_helper'
 RSpec.describe SmoothQueue do
   let(:processor) do
     Class.new(Object) do
-      def process(id, message)
+      def process(id, _message)
         SmoothQueue.done(id)
       end
     end
@@ -26,11 +26,12 @@ RSpec.describe SmoothQueue do
     end
 
     it 'works' do
-      expect(heavy_lifting_worker).to receive(:process).
-        with('abc', { 'foo' => 'bar' })
-      thread = Thread.new { SmoothQueue.wait_for_work }
-      SmoothQueue.enqueue('heavy_lifting', { 'foo' => 'bar' })
-      SmoothQueue.enqueue('very_heavy_lifting', { 'bar' => 'baz' })
+      expect(heavy_lifting_worker).to receive(:process)
+        .with('abc', 'foo' => 'bar')
+      Thread.new { SmoothQueue.wait_for_work }
+      SmoothQueue.enqueue('heavy_lifting', 'foo' => 'bar')
+      SmoothQueue.enqueue('very_heavy_lifting', 'bar' => 'baz')
+      sleep 1
     end
   end
 end

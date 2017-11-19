@@ -34,7 +34,7 @@ module SmoothQueue
 
   # Enqueue the message in the given queue. The message can be added to the tail or to the head according to what
   # is specified in the priority argument
-  def self.enqueue(queue, message, priority = :tail)
+  def self.enqueue(queue, message, _priority = :tail)
     if !message.is_a?(String) && !message.is_a?(Hash)
       raise ArgumentError, "`message` must be a String or Hash but was #{message.class}"
     end
@@ -51,23 +51,17 @@ module SmoothQueue
       payload = Util.from_json(redis.hget('messages', id))
       raise ArgumentError, "`id` doesn't match an existing message" unless payload
 
-      queue = payload['queue']
-      processing_queue = Util.processing_queue(queue)
-
-      Redix.processing_done(queue, processing_queue, id)
+      Redix.processing_done(payload['queue'], id)
     end
   end
 
   # Moves the message back to the waiting queue
   # NOTE: Redesign to support retry delay
   def self.retry(id)
-    with_nredis do |redis|
-      payload = Util.from_json(redis.hget('messages', id))
+    payload = with_nredis do |redis|
+      Util.from_json(redis.hget('messages', id))
     end
     payload['retry_count'] = payload.fetch('retry_count', 0) + 1
-    queue = payload['queue']
-    processing_queue = Util.processing_queue(queue)
-
-    Redix.retry(queue, id, payload)
+    Redix.retry(payload['queue'], id, payload)
   end
 end

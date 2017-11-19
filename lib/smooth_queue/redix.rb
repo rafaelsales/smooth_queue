@@ -14,18 +14,15 @@ module SmoothQueue
       end
     end
 
-    class Script < Struct.new(:code)
+    Script = Struct.new(:code) do
       def call(keys: [], args: [])
         SmoothQueue.with_nredis do |redis|
           redis.evalsha(sha, keys, args)
         end
       rescue Redis::CommandError => e
-        if e.message =~ /NOSCRIPT/
-          load_script
-          retry
-        else
-          raise
-        end
+        raise unless e.message =~ /NOSCRIPT/
+        load_script
+        retry
       end
 
       def load_script
@@ -58,7 +55,7 @@ module SmoothQueue
     }.freeze
 
     def self.pop_message_to_process(queue)
-      processing_queue = SmoothQueue.config.processing_queue(queue),
+      processing_queue = SmoothQueue.config.processing_queue(queue)
       max_concurrency = SmoothQueue.config.max_concurrency(queue)
       call_script(:pop_message_to_process, keys: [queue, processing_queue], args: [max_concurrency])
     end
@@ -76,8 +73,7 @@ module SmoothQueue
     end
 
     def self.processing_done(queue, id)
-      processing_queue = SmoothQueue.config.processing_queue(queue),
-
+      processing_queue = SmoothQueue.config.processing_queue(queue)
       with_nredis do |redis|
         redis.multi do
           redis.lrem(processing_queue, 1, id)
@@ -86,7 +82,7 @@ module SmoothQueue
       end
     end
 
-    def self.retry(queue, id, payload) do |redis|
+    def self.retry(queue, id, payload)
       enqueue(queue, id, payload) do |redis|
         redis.lrem(processing_queue, 1, id)
       end

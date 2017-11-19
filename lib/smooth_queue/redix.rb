@@ -2,11 +2,19 @@ module SmoothQueue
   module Redix
     module Connection
       def self.redis_connection_pool
-        @redis_connection_pool ||= ConnectionPool::Wrapper.new(size: 10) { Redis.new }
+        @redis_connection_pool ||= ConnectionPool.new { checkout_redis }
+      end
+
+      def self.checkout_redis
+        Redis.new
+      end
+
+      def self.checkout_nredis(redis = Redis.new)
+        Redis::Namespace.new(REDIS_NS, redis: redis)
       end
 
       def with_nredis(&_block)
-        with_redis { |redis| yield(Redis::Namespace.new(REDIS_NS, redis: redis)) }
+        with_redis { |redis| yield(Connection.checkout_nredis(redis)) }
       end
 
       def with_redis(&block)

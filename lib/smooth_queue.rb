@@ -19,18 +19,15 @@ module SmoothQueue
     @config
   end
 
-  def self.work
+  def self.wait_for_work
     config.queues.each do |queue|
       Redix.queue_updated(queue.name)
     end
-  end
 
-  def self.wait_for_work
-    with_nredis do |redis|
-      redis.subscribe('queue_changed') do |on|
-        on.message do |_channel, queue_name|
-          Redix.queue_updated(queue_name)
-        end
+    redis = Redix::Connection.checkout_nredis
+    redis.subscribe('queue_changed') do |on|
+      on.message do |_channel, queue_name|
+        Redix.queue_updated(queue_name)
       end
     end
   end

@@ -39,9 +39,10 @@ RSpec.describe SmoothQueue do
         m.call(id, message)
       end
 
+      Thread.new { SmoothQueue.wait_for_work }
       SmoothQueue.enqueue('heavy_lifting', 'foo' => 'bar')
       SmoothQueue.enqueue('very_heavy_lifting', 'bar' => 'baz')
-      SmoothQueue.work
+      sleep 1
     end
   end
 end

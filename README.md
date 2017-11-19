@@ -9,24 +9,45 @@ can handle.
 
 Sometimes you don't want to process messages as fast as possible. Wat?
 
-A classic example is when you use a background processing framework (such as ActiveJob or Sidekiq), and you don't want
+A classic example is when you use a background processing framework (such as Resque or Sidekiq), and you don't want
 certain workers to process more than 10 jobs simultaneously even though your background processor can handle more 50
 jobs at a time.
 
-But why would you not want to execute every single task in your application as fast as possible? There are a couple
-reasons for that:
+**Q:** Why would you not want to execute every single task in your application as fast as possible?
+
+**A:** There are a couple reasons for that:
 
   1. The processing of certain messages are so expensive that can stress your application and cause slowness in the rest
   of the application.
   Example: given a message type which processing causes more reads on database than usual, when your application needs
   to process many of these messages, the stress on database can cause latency for users and other important tasks
 
-  2. Processing certain message types takes so much time that you don't want to risk having all your background jobs
+  1. Processing certain message types takes so much time that you don't want to risk having all your background jobs
   busy processing only one type of message and delaying other critical jobs
 
   1. You cannot afford computing power to handle excessive load when certain jobs are executed with high concurrency
 
-  3. You want to protect you background job queues from attacks that cause too many messages of the same type
+  1. You want to protect you background job queues from attacks that cause too many messages of the same type
+
+<br/>
+
+**Q:** Doesn't background job libraries support do this?
+
+**A:** Kinda. They can, but none can do this efficiently, because their main focus is always get jobs done ASAP.
+
+  - Sidekiq: there are a couple options to achieve flow control, but none is super efficient:
+     - You can use custom job fetcher plugins, but then you're giving up on the extraordinary reliability that Mike
+     Perham has implemented for Sidekiq. This gets even worse if you pay for Sidekiq Pro, because it has even more
+     reliable fetch, but you would be overriding it
+     - If you pay for Sidekiq Enterprise, you can try to use the Limiter, but it's very unpredicted and inneficient
+     to achieve flow control
+
+   - Resque and Sidekiq: Create multiple queues and launch one Resque/Sidekiq process per queue that you want to limit,
+     so that you can specify the number of workers that will be available for that queue. There are two disadvantages
+     on this approach: (a) that more job types you need to limit, the more unnecessary memory usage the server will
+     have, for instance, 5 job types that need specific worker counts means 5 ruby processes; and (b) if you have server
+     redundancy, you're gonna have to split the worker counts by the number of servers you have, which is an excessive
+     ops work
 
 # Usage
 

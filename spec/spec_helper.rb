@@ -1,5 +1,8 @@
 Bundler.require(:default, :runtime_dependencies, :test)
 
+ENV['REDIS_URL'] ||= 'redis://127.0.0.1:6379/15'
+Redis.new.flushall
+
 SmoothQueue.configure do |config|
   config.add_queue('heavy_lifting', 5) do |id, message|
   end

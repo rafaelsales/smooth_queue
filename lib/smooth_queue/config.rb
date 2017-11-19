@@ -23,6 +23,10 @@ module SmoothQueue
       options.dig(:queues, queue_name.to_s)
     end
 
+    def queues
+      options[:queues].values
+    end
+
     def valid_queue?(queue_name)
       options[:queues].key?(queue_name.to_s)
     end

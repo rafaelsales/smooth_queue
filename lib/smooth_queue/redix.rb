@@ -56,9 +56,11 @@ module SmoothQueue
 
     def self.pop_message_to_process(queue_name)
       queue = SmoothQueue.config.queue(queue_name)
-      call_script(:pop_message_to_process,
-                  keys: [queue_name, queue.processing_queue_name],
-                  args: [queue.max_concurrency])
+      call_script(
+        :pop_message_to_process,
+        keys: [queue_name, queue.processing_queue_name],
+        args: [queue.max_concurrency],
+      )
     end
 
     def self.enqueue(queue, id, payload, &_block)
@@ -92,13 +94,14 @@ module SmoothQueue
 
     def self.queue_updated(queue_name)
       queue = SmoothQueue.config.queue(queue_name)
-      Redis.new.tap do |redis|
-        if (id = pop_message_to_process(queue_name))
-          payload = Util.from_json(redis.hget('messages', id))
-          message = payload.delete('message')
-          queue.handler.call(id, message, payload)
-        end
+      id = pop_message_to_process(queue_name)
+      return unless id
+
+      payload = SmoothQueue.with_nredis do |redis|
+        Util.from_json(redis.hget('messages', id))
       end
+      message = payload.delete('message')
+      queue.handler.call(id, message, payload)
     end
 
     def self.call_script(name, **arguments)

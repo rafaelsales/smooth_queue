@@ -8,7 +8,6 @@ require_relative 'smooth_queue/redix'
 module SmoothQueue
   extend Redix::Connection
 
-  PRIORITIES = %i[head tail].freeze
   REDIS_NS = 'squeue'.freeze
 
   def self.configure(&_block)
@@ -18,6 +17,12 @@ module SmoothQueue
 
   def self.config
     @config
+  end
+
+  def self.work
+    config.queues.each do |queue|
+      Redix.queue_updated(queue.name)
+    end
   end
 
   def self.wait_for_work
@@ -30,9 +35,8 @@ module SmoothQueue
     end
   end
 
-  # Enqueue the message in the given queue. The message can be added to the tail or to the head according to what
-  # is specified in the priority argument
-  def self.enqueue(queue_name, message, _priority = :tail)
+  # Enqueue the message in the given queue
+  def self.enqueue(queue_name, message)
     if !message.is_a?(String) && !message.is_a?(Hash)
       raise ArgumentError, "`message` must be a String or Hash but was #{message.class}"
     end
@@ -40,7 +44,7 @@ module SmoothQueue
 
     payload = Util.build_message_payload(queue_name, message)
     id = Util.generate_id
-    Redix.enqueue(queue_name, id, payload)
+    Redix.enqueue(queue_name, id, Util.to_json(payload))
   end
 
   # Removes the message from processing queue as it was successfully processed

@@ -3,9 +3,11 @@ require 'redis-namespace'
 require 'connection_pool'
 require_relative 'smooth_queue/config'
 require_relative 'smooth_queue/util'
-require_relative 'smooth_queue/redis_helpers'
+require_relative 'smooth_queue/redix'
 
 module SmoothQueue
+  extend Redix::Connection
+
   PRIORITIES = %i[head tail].freeze
   REDIS_NS = 'squeue'.freeze
 
@@ -22,29 +24,13 @@ module SmoothQueue
     with_nredis do |redis|
       redis.subscribe('queue_changed') do |on|
         on.message do |_channel, queue|
-          puts redis.llen(processing_queue)
-          queue_changed(queue, redis)
+          max_concurrency = config.queue_max_concurrency(queue)
+          processing_queue = Util.processing_queue(queue)
+          Redix.queue_updated(queue, processing_queue, max_concurrency)
         end
       end
     end
   end
-
-  def self.queue_changed(queue)
-    max_concurrency = config.queue_max_concurrency(queue)
-    processing_queue = Util.processing_queue(queue)
-
-    with_nredis do |redis|
-      binding.pry
-      # TODO: Use lua to make next two lines atomic
-      if redis.llen(processing_queue) < max_concurrency
-        id = redis.rpoplpush(queue, processing_queue)
-        payload = Util.from_json(redis.hget('messages', id))
-        message = payload.delete('message')
-        config.queue_handler.call(id, message, payload)
-      end
-    end
-  end
-  private_class_method :queue_changed
 
   # Enqueue the message in the given queue. The message can be added to the tail or to the head according to what
   # is specified in the priority argument
@@ -56,10 +42,7 @@ module SmoothQueue
 
     payload = Util.build_message_payload(queue, message)
     id = Util.generate_id
-    with_nredis do |redis|
-      redis.sadd('queues', queue)
-    end
-    add_payload_to_queue(id, payload, queue)
+    Redix.enqueue(queue, id, payload)
   end
 
   # Removes the message from processing queue as it was successfully processed
@@ -71,10 +54,7 @@ module SmoothQueue
       queue = payload['queue']
       processing_queue = Util.processing_queue(queue)
 
-      redis.multi do
-        redis.lrem(processing_queue, 1, id)
-        redis.publish('queue_changed', queue)
-      end
+      Redix.processing_done(queue, processing_queue, id)
     end
   end
 
@@ -88,32 +68,6 @@ module SmoothQueue
     queue = payload['queue']
     processing_queue = Util.processing_queue(queue)
 
-    add_payload_to_queue(id, payload, queue) do |redis|
-      redis.lrem(processing_queue, 1, id)
-    end
+    Redix.retry(queue, id, payload)
   end
-
-  def self.redis_connection_pool
-    @redis_connection_pool ||= ConnectionPool::Wrapper.new(size: 10) { Redis.new }
-  end
-
-  def self.with_redis(&block)
-    redis_connection_pool.with(&block)
-  end
-
-  def self.with_nredis(&_block)
-    with_redis { |redis| yield(Redis::Namespace.new(REDIS_NS, redis: redis)) }
-  end
-
-  def self.add_payload_to_queue(id, payload, queue, &_block)
-    with_nredis do |redis|
-      redis.multi do
-        redis.hset('messages', id, payload)
-        redis.lpush(queue, id)
-        redis.publish('queue_changed', queue)
-        yield(redis) if block_given?
-      end
-    end
-  end
-  private_class_method :add_payload_to_queue
 end

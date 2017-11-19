@@ -24,6 +24,13 @@ module SmoothQueue
       options.dig(:queues, queue.to_sym, :handler)
     end
 
+    def processing_queue(queue)
+      @processing_queues ||= {}
+      @processing_queues.fetch(queue) do
+        "#{queue}-processing".freeze
+      end
+    end
+
     def queue_defined?(queue)
       options[:queues].key?(queue.to_sym)
     end

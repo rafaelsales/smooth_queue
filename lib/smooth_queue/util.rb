@@ -15,13 +15,6 @@ module SmoothQueue
       SecureRandom.hex(12).freeze
     end
 
-    def self.processing_queue(queue)
-      @processing_queues ||= {}
-      @processing_queues.fetch(queue) do
-        "#{queue}-processing".freeze
-      end
-    end
-
     def self.from_json(json)
       return unless json
       json.is_a?(Hash) ? json : JSON.parse(json)

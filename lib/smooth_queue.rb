@@ -20,16 +20,9 @@ module SmoothQueue
     @config
   end
 
-  def self.wait_for_work
+  def self.backfill!
     config.queues.each do |queue|
-      Redix.queue_updated(queue.name)
-    end
-
-    redis = Redix::Connection.checkout_nredis
-    redis.subscribe('queue_changed') do |on|
-      on.message do |_channel, queue_name|
-        Redix.queue_updated(queue_name)
-      end
+      Redis.queue_updated(queue.name)
     end
   end
 
@@ -43,6 +36,7 @@ module SmoothQueue
     payload = Util.build_message_payload(queue_name, message)
     id = Util.generate_id
     Redix.enqueue(queue_name, id, Util.to_json(payload))
+    Redix.queue_updated(queue_name)
   end
 
   # Removes the message from processing queue as it was successfully processed
@@ -50,8 +44,9 @@ module SmoothQueue
     with_nredis do |redis|
       payload = Util.from_json(redis.hget('messages', id))
       raise ArgumentError, "`id` doesn't match an existing message" unless payload
-
-      Redix.processing_done(payload['queue'], id)
+      queue_name = payload['queue']
+      Redix.processing_done(queue_name, id)
+      Redix.queue_updated(queue_name)
     end
   end
 

@@ -78,7 +78,7 @@ module SmoothQueue
           redis.sadd('queues', queue)
           redis.hset('messages', id, payload)
           redis.lpush(queue, id)
-          redis.publish('queue_changed', queue)
+          # redis.publish('queue_changed', queue)
           yield(redis) if block_given?
         end
       end
@@ -89,7 +89,7 @@ module SmoothQueue
       with_nredis do |redis|
         redis.multi do
           redis.lrem(queue.processing_queue_name, 1, id)
-          redis.publish('queue_changed', queue_name)
+          # redis.publish('queue_changed', queue_name)
         end
       end
     end
@@ -111,6 +111,15 @@ module SmoothQueue
       end
       message = payload.delete('message')
       queue.handler.call(id, message, payload)
+    end
+
+    def self.wait_for_messages
+      redis = Connection.checkout_nredis
+      redis.subscribe('queue_changed') do |on|
+        on.message do |_channel, queue_name|
+          queue_updated(queue_name)
+        end
+      end
     end
 
     def self.call_script(name, **args)

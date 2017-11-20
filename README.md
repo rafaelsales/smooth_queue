@@ -65,6 +65,8 @@ SmoothQueue.configure do |config|
     VeryHeavyLiftingWorker.perform_later(id, message) # Make sure this operation is ~O(1)
   end
 end
+
+SmoothQueue.backfill! # Check for messages to process since the app went down
 ```
 
 ### Process messages and tell SmoothQueue when it's done
@@ -78,6 +80,7 @@ class HeavyLiftingWorker
     SmoothQueue.done(id)
   end
 end
+
 class VeryHeavyLiftingWorker
   include SomeBackgroundJobFramework
 

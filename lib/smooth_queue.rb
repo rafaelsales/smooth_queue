@@ -59,4 +59,15 @@ module SmoothQueue
     payload['retry_count'] = payload.fetch('retry_count', 0) + 1
     Redix.retry(payload['queue'], id, payload)
   end
+
+  def self.stats
+    with_nredis do |redis|
+      config.queues.reduce({}) do |hash, queue|
+        hash.merge(queue.name => {
+          waiting: redis.llen(queue.name),
+          processing: redis.llen(queue.processing_queue_name),
+        })
+      end
+    end
+  end
 end

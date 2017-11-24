@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+# puts File.join(__FILE__, '../')
+# require __FILE__ # '../config/boot'
+require_relative '../config/boot'
+Producer.run

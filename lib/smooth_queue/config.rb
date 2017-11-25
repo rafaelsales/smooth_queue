@@ -4,6 +4,10 @@ module SmoothQueue
       def processing_queue_name
         @processing_queue_name ||= "#{name}-processing"
       end
+
+      def handle(*args)
+        handler.call(*args)
+      end
     end
 
     DEFAULT_OPTIONS = {

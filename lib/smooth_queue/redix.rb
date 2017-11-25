@@ -102,15 +102,12 @@ module SmoothQueue
     end
 
     def self.queue_updated(queue_name)
-      queue = SmoothQueue.config.queue(queue_name)
       id = pop_message_to_process(queue_name)
       return unless id
 
-      payload = SmoothQueue.with_nredis do |redis|
-        Util.from_json(redis.hget('messages', id))
+      with_nredis do |redis|
+        [id, redis.hget('messages', id)]
       end
-      message = payload.delete('message')
-      queue.handler.call(id, message, payload)
     end
 
     def self.wait_for_messages

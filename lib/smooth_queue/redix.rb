@@ -78,7 +78,6 @@ module SmoothQueue
           redis.sadd('queues', queue)
           redis.hset('messages', id, payload)
           redis.lpush(queue, id)
-          # redis.publish('queue_changed', queue)
           yield(redis) if block_given?
         end
       end
@@ -89,7 +88,7 @@ module SmoothQueue
       with_nredis do |redis|
         redis.multi do
           redis.lrem(queue.processing_queue_name, 1, id)
-          # redis.publish('queue_changed', queue_name)
+          redis.hdel('messages', id)
         end
       end
     end

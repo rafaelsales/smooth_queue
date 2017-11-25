@@ -34,15 +34,15 @@ module SmoothQueue
         retry
       end
 
+      def sha
+        load unless defined?(@sha)
+        @sha
+      end
+
       def load
         SmoothQueue.with_redis do |redis|
           @sha = redis.script(:load, code).freeze
         end
-      end
-
-      def sha
-        load unless defined?(@sha)
-        @sha
       end
     end
 
@@ -100,7 +100,7 @@ module SmoothQueue
       end
     end
 
-    def self.queue_updated(queue_name)
+    def self.pick_message(queue_name)
       id = pop_message_to_process(queue_name)
       return unless id
 
@@ -113,7 +113,7 @@ module SmoothQueue
       redis = Connection.checkout_nredis
       redis.subscribe('queue_changed') do |on|
         on.message do |_channel, queue_name|
-          queue_updated(queue_name)
+          pick_message(queue_name)
         end
       end
     end

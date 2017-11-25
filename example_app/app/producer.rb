@@ -1,8 +1,8 @@
 class Producer
   def self.run
     8.times do |i|
-      SmoothQueue.enqueue('heavy_lifting', %Q({"id":"#{i}","foo":"bar"}))
-      SmoothQueue.enqueue('very_heavy_lifting', %Q({"id":"#{i}","bar":"baz"}))
+      SmoothQueue.enqueue('heavy_lifting', %({"id":"#{i}","foo":"bar"}))
+      SmoothQueue.enqueue('very_heavy_lifting', %({"id":"#{i}","bar":"baz"}))
     end
 
     loop do

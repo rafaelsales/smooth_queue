@@ -70,11 +70,11 @@ module SmoothQueue
 
   def self.stats
     with_nredis do |redis|
-      config.queues.reduce({}) do |hash, queue|
-        hash.merge(queue.name => {
+      config.queues.each_with_object({}) do |queue, hash|
+        hash[queue.name] = {
           waiting: redis.llen(queue.name),
           processing: redis.llen(queue.processing_queue_name),
-        })
+        }
       end
     end
   end

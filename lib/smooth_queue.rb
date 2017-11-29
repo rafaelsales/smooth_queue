@@ -64,12 +64,7 @@ module SmoothQueue
   # Move the message back to the waiting queue
   # NOTE: Redesign to support retry delay
   def self.retry(id)
-    payload = with_nredis do |redis|
-      Util.from_json(redis.hget('messages', id))
-    end
-    payload['retry_count'] = payload.fetch('retry_count', 0) + 1
-    delay = config.
-    Redix.retry(id, payload)
+    Retry.new(id).handle
   end
 
   def self.stats

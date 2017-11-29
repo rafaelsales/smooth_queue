@@ -10,10 +10,42 @@ module SmoothQueue
       end
     end
 
-    attr_reader :queues, :retry_delay, :retries_exhausted_handler
+    attr_reader :queues, :retries_exhausted_handler
+
+    # @overload max_retries
+    #   Returns maximum retries
+    # @overload max_retries=
+    #   Define global maximum retries
+    #
+    #   Default: 25
+    #
+    #   @param [Integer] max_retries must be >= 0
+    attr_accessor :max_retries
+
+    # @overload retry_delay
+    #   Returns retry delay
+    # @overload retry_delay=
+    #   Define global retry delay
+    #
+    #   Default:
+    #     ->(retry_count) { (retry_count ** 4) + 15 + (rand(30) * (retry_count + 1)) }
+    #
+    #   @example Fixed delay
+    #     retry_delay = 30 # 30 seconds interval between each retry
+    #
+    #   @example Dynamic delay. The retry_count starts at 0 and the payload contains the message and other metadata
+    #     retry_delay = ->(retry_count, payload) {
+    #       (1 + retry_count) * 60 # 1min, 2min, 3min...
+    #     }
+    #
+    #   @param [Integer, Proc] delay fixed delay in seconds or Proc that returns number of seconds dynamically
+    attr_accessor :retry_delay
 
     def initialize
+      @max_retries = 25
       @queues = {}
+      @retries_exhausted_handler = ->() {}
+      @retry_delay = ->(retry_count) { (retry_count**4) + 15 + (rand(30) * (retry_count + 1)) }
     end
 
     # Define a queue
@@ -25,24 +57,10 @@ module SmoothQueue
       queues[queue_name.to_s] = Queue.new(queue_name.to_s, max_concurrency, handler)
     end
 
-    # Define global retry delay
-    #
-    # @example Fixed delay
-    #   retry_delay = 30 # 30 seconds interval between each retry
-    #
-    # @example Dynamic delay
-    #   retry_delay = ->(retry_count) {
-    #     (1 + retry_count) * 60 # 1min, 2min, 3min...
-    #   }
-    #
-    # @param [Integer, Proc] delay fixed delay in seconds or Proc that returns number of seconds dynamically
-    def retry_delay=(delay)
-      @retry_delay = delay
-    end
-
     # Define global handler for exhausted retries of a given message
     #
-    # @yield [message, retry_count] Use this to notify your team when a message failed to process too many times
+    # @yield [payload] Use this to notify your team when a message failed to process too many times.
+    # The payload is a hash containing +queue+, +message+, +retry_count+ and perhaps other useful data
     def on_retries_exhausted(&block)
       @retries_exhausted_handler = block
     end

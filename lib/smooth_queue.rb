@@ -21,8 +21,10 @@ module SmoothQueue
   end
 
   def self.backfill!
-    config.queues.each do |queue|
-      handle_next_message(queue.name)
+    config.queues.each do |name|
+      queue.max_concurrency.times do
+        handle_next_message(name)
+      end
     end
   end
 
@@ -39,7 +41,7 @@ module SmoothQueue
     handle_next_message(queue_name)
   end
 
-  # Removes the message from processing queue as it was successfully processed
+  # Remove the message from processing queue as it was successfully processed
   def self.done(id)
     with_nredis do |redis|
       payload = Util.from_json(redis.hget('messages', id))
@@ -50,6 +52,7 @@ module SmoothQueue
     end
   end
 
+  # Take a next message from queue and move to processing queue if the concurrency is not maxed out
   def self.handle_next_message(queue_name)
     id, json_payload = Redix.pick_message(queue_name)
     return unless json_payload
@@ -58,21 +61,22 @@ module SmoothQueue
     SmoothQueue.config.queue(queue_name).handle(id, message, payload)
   end
 
-  # Moves the message back to the waiting queue
+  # Move the message back to the waiting queue
   # NOTE: Redesign to support retry delay
   def self.retry(id)
     payload = with_nredis do |redis|
       Util.from_json(redis.hget('messages', id))
     end
     payload['retry_count'] = payload.fetch('retry_count', 0) + 1
-    Redix.retry(payload['queue'], id, payload)
+    delay = config.
+    Redix.retry(id, payload)
   end
 
   def self.stats
     with_nredis do |redis|
-      config.queues.each_with_object({}) do |queue, hash|
+      config.queues.each_with_object({}) do |(name, queue), hash|
         hash[queue.name] = {
-          waiting: redis.llen(queue.name),
+          waiting: redis.llen(name),
           processing: redis.llen(queue.processing_queue_name),
         }
       end

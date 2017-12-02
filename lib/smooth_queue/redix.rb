@@ -64,7 +64,7 @@ module SmoothQueue
     }.freeze
 
     def self.pop_message_to_process(queue_name)
-      queue = SmoothQueue.config.queue(queue_name)
+      queue = SmoothQueue.queue(queue_name)
       call_script(
         :pop_message_to_process,
         keys: [queue_name, queue.processing_queue_name],
@@ -72,19 +72,19 @@ module SmoothQueue
       )
     end
 
-    def self.enqueue(queue, id, payload, &_block)
+    def self.enqueue(queue_name, id, payload, &_block)
       with_nredis do |redis|
         redis.multi do
-          redis.sadd('queues', queue)
+          redis.sadd('queues', queue_name)
           redis.hset('messages', id, payload)
-          redis.lpush(queue, id)
+          redis.lpush(queue_name, id)
           yield(redis) if block_given?
         end
       end
     end
 
     def self.processing_done(queue_name, id)
-      queue = SmoothQueue.config.queue(queue_name)
+      queue = SmoothQueue.queue(queue_name)
       with_nredis do |redis|
         redis.multi do
           redis.lrem(queue.processing_queue_name, 1, id)
@@ -109,15 +109,6 @@ module SmoothQueue
 
       with_nredis do |redis|
         [id, redis.hget('messages', id)]
-      end
-    end
-
-    def self.wait_for_messages
-      redis = Connection.checkout_nredis
-      redis.subscribe('queue_changed') do |on|
-        on.message do |_channel, queue_name|
-          pick_message(queue_name)
-        end
       end
     end
 

@@ -48,7 +48,7 @@ module SmoothQueue
       @retry_delay = ->(retry_count) { (retry_count**4) + 15 + (rand(30) * (retry_count + 1)) }
     end
 
-    # Define a queue
+    # Add queue definition
     #
     # @param [String] queue_name
     # @param [Integer] max_concurrency number of messages allowed to be processed simultaneously
@@ -65,12 +65,11 @@ module SmoothQueue
       @retries_exhausted_handler = block
     end
 
-    def queue(queue_name)
-      queues[queue_name.to_s]
-    end
-
-    def valid_queue?(queue_name)
-      queues.key?(queue_name.to_s)
+    # Define error handler
+    #
+    # @yield [exception] Use this to notify your team when an unexpected error occurrs on SmoothQueue loop
+    def on_error(&block)
+      @error_handler = block
     end
   end
 end

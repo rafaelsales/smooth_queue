@@ -12,6 +12,13 @@ module SmoothQueue
       }
     end
 
+    def self.handle_error(&block)
+      yield
+    rescue => e
+      SmoothQueue.config.logger.error(e)
+      SmoothQueue.config.error_handler.call(e)
+    end
+
     def self.generate_id
       SecureRandom.hex(12).freeze
     end

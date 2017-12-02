@@ -1,0 +1,3 @@
+#!/bin/sh
+rm -rf ./.yardoc
+yard server --reload

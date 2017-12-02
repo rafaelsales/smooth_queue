@@ -6,7 +6,7 @@ module SmoothQueue
   module Util
     def self.build_message_payload(queue, message)
       {
-        'created_at'.freeze => Time.now.utc.iso8601.freeze,
+        'created_at'.freeze => Time.now.to_f,
         'message'.freeze => message,
         'queue'.freeze => queue.freeze,
       }

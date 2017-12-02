@@ -15,19 +15,14 @@ jobs at a time.
 
 **Q:** Why would you not want to execute every single task in your application as fast as possible?
 
-**A:** There are a couple reasons for that:
+**A:** Rate limiting is often a feature requirement/constraint. Here are a few examples:
 
   1. The processing of certain messages are so expensive that can stress your application and cause slowness in the rest
   of the application.
-  Example: given a message type which processing causes more reads on database than usual, when your application needs
-  to process many of these messages, the stress on database can cause latency for users and other important tasks
 
-  1. Processing certain message types takes so much time that you don't want to risk having all your background jobs
-  busy processing only one type of message and delaying other critical jobs
+  1. The processing of certain messages result in API calls, which target server imposes rate limiting.
 
   1. You cannot afford computing power to handle excessive load when certain jobs are executed with high concurrency
-
-  1. You want to protect your background job queues from attacks that cause too many messages of the same type
 
 <br/>
 
@@ -39,8 +34,8 @@ jobs at a time.
      - You can use custom job fetcher plugins, but then you're giving up on the extraordinary reliability that Mike
      Perham has implemented for Sidekiq. This gets even worse if you pay for Sidekiq Pro, because it has even more
      reliable fetch, but you would be overriding it
-     - If you pay for Sidekiq Enterprise, you can try to use the Limiter, but it's very unpredicted and inneficient
-     to achieve flow control
+     - If you pay for Sidekiq Enterprise, you can try to use the Limiter, but its algorithm is unfair and inneficient
+     as rate limiter
 
    - Resque and Sidekiq: Create multiple queues and launch one Resque/Sidekiq process per queue that you want to limit,
      so that you can specify the number of workers that will be available for that queue. There are two disadvantages

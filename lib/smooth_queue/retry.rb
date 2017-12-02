@@ -5,7 +5,7 @@ module SmoothQueue
     def handle
       if should_retry?
         payload['retry_count'] = retry_count + 1
-        Redix.retry(id, payload, retry_delay)
+        Redix.retry(payload.fetch('queue'), id, retry_at)
       else
         SmoothQueue.config.retries_exhausted_handler.call(payload)
       end
@@ -15,6 +15,10 @@ module SmoothQueue
 
     def retry_count
       payload.fetch('retry_count', 0)
+    end
+
+    def retry_at
+      (Time.now + retry_delay).to_i
     end
 
     def retry_delay

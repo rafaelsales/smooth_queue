@@ -93,10 +93,13 @@ module SmoothQueue
       end
     end
 
-    def self.retry(queue_name, id, payload)
-      queue = SmoothQueue.config.queue(queue_name)
-      enqueue(queue_name, id, payload) do |redis|
-        redis.lrem(queue.processing_queue_name, 1, id)
+    def self.retry(queue_name, id, retry_at)
+      queue = SmoothQueue.queue(queue_name)
+      with_nredis do |redis|
+        redis.multi do
+          redis.zadd('retry', id, retry_at)
+          redis.lrem(queue.processing_queue_name, 1, id)
+        end
       end
     end
 

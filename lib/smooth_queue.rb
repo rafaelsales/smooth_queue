@@ -5,6 +5,7 @@ require 'connection_pool'
 require_relative 'smooth_queue/config'
 require_relative 'smooth_queue/util'
 require_relative 'smooth_queue/redix'
+require_relative 'smooth_queue/retry'
 
 module SmoothQueue
   extend Redix::Connection

@@ -22,10 +22,11 @@ module SmoothQueue
         Connection.redis_connection_pool.with(&block)
       end
     end
+    extend Connection
 
     Script = Struct.new(:code) do
       def call(keys: [], args: [])
-        SmoothQueue.with_nredis do |redis|
+        Redix.with_nredis do |redis|
           redis.evalsha(sha, keys, args)
         end
       rescue Redis::CommandError => e
@@ -46,8 +47,7 @@ module SmoothQueue
       end
     end
 
-    extend Connection
-
+    REDIS_NS = 'squeue'.freeze
     SCRIPTS = {
       pop_message_to_process: Script.new(<<-LUA.freeze),
         local queue = KEYS[1]
@@ -61,6 +61,27 @@ module SmoothQueue
           return nil
         end
       LUA
+      pop_retries_to_enqueue: Script.new(<<-LUA.freeze),
+        local retry_queue = KEYS[1]
+        local key_prefix = ARGV[1] .. ':'
+        local cut_off_time = ARGV[2]
+        local limit = 100
+        local entries = redis.call('ZRANGEBYSCORE', retry_queue, 0, cut_off_time, 'LIMIT', 0, limit)
+        local count = table.getn(entries)
+
+        if count > 0 then
+          for _, entry in pairs(entries) do
+            -- A retry entry is a string with format 'queue_name/message_id'
+            local separator_index = string.find(entry, '/')
+            local target_queue = string.sub(entry, 0, separator_index - 1)
+            local id = string.sub(entry, separator_index + 1)
+
+            redis.call('LPUSH', key_prefix .. target_queue, id)
+          end
+          redis.call('ZREM', retry_queue, unpack(entries))
+        end
+        return count
+      LUA
     }.freeze
 
     def self.pop_message_to_process(queue_name)
@@ -69,6 +90,14 @@ module SmoothQueue
         :pop_message_to_process,
         keys: [queue_name, queue.processing_queue_name],
         args: [queue.max_concurrency],
+      )
+    end
+
+    def self.pop_retries_to_enqueue(cut_off_time: Time.now)
+      call_script(
+        :pop_retries_to_enqueue,
+        keys: [RETRY_QUEUE],
+        args: [REDIS_NS, cut_off_time.to_i],
       )
     end
 
@@ -97,7 +126,7 @@ module SmoothQueue
       queue = SmoothQueue.queue(queue_name)
       with_nredis do |redis|
         redis.multi do
-          redis.zadd('retry', id, retry_at)
+          redis.zadd(RETRY_QUEUE, retry_at, "#{queue_name}/#{id}")
           redis.lrem(queue.processing_queue_name, 1, id)
         end
       end

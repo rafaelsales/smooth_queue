@@ -7,7 +7,8 @@ class BackgroundWorker
         new.process(*args)
         logger.info "#{name}: Job #{job_id} finished"
       rescue => e
-        logger.error "Worker failed: #{e.class} - #{e.message}"
+        backtrace_text = (e.backtrace || []).map { |line| line.prepend('  ') }.join("\n")
+        logger.error "Worker failed: #{e.class} - #{e.message}\n#{backtrace_text}"
       end
     end
   end

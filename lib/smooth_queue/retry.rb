@@ -1,5 +1,5 @@
 module SmoothQueue
-  Retry = Struct.new(:message_id) do
+  Retry = Struct.new(:id) do
     include Redix::Connection
 
     def handle
@@ -22,7 +22,7 @@ module SmoothQueue
     end
 
     def retry_delay
-      delay = SmoothQueue.config.retry_delay
+      delay = SmoothQueue.config.retry_delay.call(retry_count, payload)
       if delay.is_a?(Numeric)
         delay
       else
@@ -40,7 +40,7 @@ module SmoothQueue
 
     def payload
       @payload ||= with_nredis do |redis|
-        Util.from_json(redis.hget('messages', message_id))
+        Util.from_json(redis.hget('messages', id))
       end
     end
   end

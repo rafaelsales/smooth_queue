@@ -10,7 +10,7 @@ require_relative 'smooth_queue/retry'
 module SmoothQueue
   extend Redix::Connection
 
-  REDIS_NS = 'squeue'.freeze
+  RETRY_QUEUE = 'retry'
   LOOP_INTERVAL = 15
 
   def self.configure(&_block)
@@ -64,7 +64,7 @@ module SmoothQueue
       loop do
         Util.handle_error do
           handle_queued_messages
-          handle_retry_messages
+          Redix.pop_retries_to_enqueue
         end
         sleep LOOP_INTERVAL
       end
@@ -73,12 +73,14 @@ module SmoothQueue
 
   def self.stats
     with_nredis do |redis|
-      config.queues.each_with_object({}) do |(name, queue), hash|
+      hash = { retry: redis.zcard(RETRY_QUEUE) }
+      config.queues.each do |name, queue|
         hash[queue.name] = {
           waiting: redis.llen(name),
           processing: redis.llen(queue.processing_queue_name),
         }
       end
+      hash
     end
   end
 
@@ -104,16 +106,11 @@ module SmoothQueue
 
   # Check and handle messages enqueued
   def self.handle_queued_messages
-    config.queues.each do |name|
+    config.queues.each do |name, queue|
       queue.max_concurrency.times do
         handle_next_message(name)
       end
     end
-  end
-  private_class_method :handle_next_message
-
-  def self.handle_retry_messages
-
   end
   private_class_method :handle_next_message
 end

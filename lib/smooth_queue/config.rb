@@ -1,3 +1,5 @@
+require 'logger'
+
 module SmoothQueue
   class Config
     Queue = Struct.new(:name, :max_concurrency, :handler) do
@@ -12,12 +14,22 @@ module SmoothQueue
 
     attr_reader :queues, :retries_exhausted_handler
 
+    # @overload logger
+    #   Returns the logger
+    # @overload logger=
+    #   Define logger
+    #
+    #   Default: +Logger.new(STDOUT)+
+    #
+    #   @param [Logger] logger a logger instance
+    attr_accessor :logger
+
     # @overload max_retries
     #   Returns maximum retries
     # @overload max_retries=
     #   Define global maximum retries
     #
-    #   Default: 25
+    #   Default: +25+
     #
     #   @param [Integer] max_retries must be >= 0
     attr_accessor :max_retries
@@ -30,22 +42,20 @@ module SmoothQueue
     #   Default:
     #     ->(retry_count) { (retry_count ** 4) + 15 + (rand(30) * (retry_count + 1)) }
     #
-    #   @example Fixed delay
-    #     retry_delay = 30 # 30 seconds interval between each retry
-    #
     #   @example Dynamic delay. The retry_count starts at 0 and the payload contains the message and other metadata
     #     retry_delay = ->(retry_count, payload) {
     #       (1 + retry_count) * 60 # 1min, 2min, 3min...
     #     }
     #
-    #   @param [Integer, Proc] delay fixed delay in seconds or Proc that returns number of seconds dynamically
+    #   @param [Proc] Proc that returns number of seconds dynamically
     attr_accessor :retry_delay
 
     def initialize
       @max_retries = 25
       @queues = {}
       @retries_exhausted_handler = ->() {}
-      @retry_delay = ->(retry_count) { (retry_count**4) + 15 + (rand(30) * (retry_count + 1)) }
+      @logger = Logger.new(STDOUT)
+      @retry_delay = ->(retry_count, _payload) { (retry_count**4) + 15 + (rand(30) * (retry_count + 1)) }
     end
 
     # Add queue definition

@@ -61,7 +61,7 @@ SmoothQueue.configure do |config|
   end
 end
 
-SmoothQueue.backfill! # Check for messages to process since the app went down
+SmoothQueue.loop_async! # Starts a very lightweight thread that monitor the queues
 ```
 
 ### Process messages and tell SmoothQueue when it's done

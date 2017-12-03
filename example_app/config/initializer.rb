@@ -9,3 +9,4 @@ SmoothQueue.configure do |config|
     VeryHeavyLiftingWorker.perform_later(id, message)
   end
 end
+SmoothQueue.loop_async!

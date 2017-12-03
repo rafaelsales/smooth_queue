@@ -61,6 +61,7 @@ module SmoothQueue
           return nil
         end
       LUA
+
       pop_retries_to_enqueue: Script.new(<<-LUA.freeze),
         local retry_queue = KEYS[1]
         local key_prefix = ARGV[1] .. ':'
@@ -107,7 +108,6 @@ module SmoothQueue
           redis.sadd('queues', queue_name)
           redis.hset('messages', id, payload)
           redis.lpush(queue_name, id)
-          yield(redis) if block_given?
         end
       end
     end

@@ -34,8 +34,10 @@ module SmoothQueue
 
     payload = Util.build_message_payload(queue_name, message)
     id = Util.generate_id
-    Redix.enqueue(queue_name, id, Util.to_json(payload))
-    handle_next_message(queue_name)
+    with_nredis do |_redis|
+      Redix.enqueue(queue_name, id, Util.to_json(payload))
+      Util.handle_error { handle_next_message(queue_name) }
+    end
   end
 
   # Remove the message from processing queue as it was successfully processed
@@ -47,7 +49,7 @@ module SmoothQueue
       raise ArgumentError, "`id` doesn't match an existing message" unless payload
       queue_name = payload['queue']
       Redix.processing_done(queue_name, id)
-      handle_next_message(queue_name)
+      Util.handle_error { handle_next_message(queue_name) }
     end
   end
 
